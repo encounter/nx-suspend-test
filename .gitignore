@@ -1,0 +1,12 @@
+# Build
+build/
+*.elf
+*.nacp
+*.nro
+*.nso
+*.out
+*.pfs0
+
+# CLion
+.idea/
+cmake-build-*/
