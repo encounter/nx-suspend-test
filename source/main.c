@@ -8,6 +8,8 @@ static const uint64_t sleepNsec = 1000000000; // 1 sec
 static const int numThreads = 4;
 static Mutex consoleMtx = 0;
 
+struct timespec diff_timespec(struct timespec start, struct timespec end);
+
 void test_printf(const char *str, ...) {
     mutexLock(&consoleMtx);
 
@@ -77,7 +79,7 @@ bool threadSuspendTest() {
     struct timespec start, stop;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    test_printf("Started threadSuspendTest @ %lu\n", start.tv_nsec);
+    test_printf("Started threadSuspendTest @ %li:%lu\n", start.tv_sec, start.tv_nsec);
 
     // Test suspending self
     Handle mainThreadHandle = envGetMainThreadHandle();
@@ -114,7 +116,9 @@ bool threadSuspendTest() {
     svcSleepThread(sleepNsec);
     for (int i = 0; i < numThreads; i += 3) {
         test_printf("Suspending thread %d...\n", i + 1);
+        mutexLock(&consoleMtx);
         rc = threadPause(&threads[i]);
+        mutexUnlock(&consoleMtx);
         assertZero(rc);
     }
 
@@ -138,7 +142,8 @@ bool threadSuspendTest() {
     }
 
     clock_gettime(CLOCK_MONOTONIC, &stop);
-    test_printf("Ended threadSuspendTest @ %lu w/ diff %lu\n", stop.tv_nsec, stop.tv_nsec - start.tv_nsec);
+    struct timespec res = diff_timespec(start, stop);
+    test_printf("Ended threadSuspendTest @ %li:%lu w/ diff %li:%lu\n", stop.tv_sec, stop.tv_nsec, res.tv_sec, res.tv_nsec);
     goto end;
 
     cleanup:
@@ -167,4 +172,16 @@ int main(int argc, char **argv) {
 
     consoleExit(NULL);
     return 0;
+}
+
+struct timespec diff_timespec(struct timespec start, struct timespec end) {
+    struct timespec temp;
+    if (end.tv_nsec - start.tv_nsec < 0) {
+        temp.tv_sec = end.tv_sec - start.tv_sec - 1;
+        temp.tv_nsec = 1000000000 + end.tv_nsec - start.tv_nsec;
+    } else {
+        temp.tv_sec = end.tv_sec - start.tv_sec;
+        temp.tv_nsec = end.tv_nsec - start.tv_nsec;
+    }
+    return temp;
 }
